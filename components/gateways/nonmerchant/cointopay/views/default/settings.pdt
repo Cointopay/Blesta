@@ -1,0 +1,14 @@
+<ul>
+	<li>
+		<?php
+        $this->Form->label($this->_('Cointopay.merchant_id', true), 'merchant_id');
+        $this->Form->fieldText('merchant_id', $this->Html->ifSet($meta['merchant_id']), ['id'=>'merchant_id']);
+        ?>
+	</li>
+	<li>
+		<?php
+        $this->Form->label($this->_('Cointopay.security_code', true), 'security_code');
+        $this->Form->fieldText('security_code', $this->Html->ifSet($meta['security_code']), ['id'=>'security_code']);
+        ?>
+	</li>
+</ul>
