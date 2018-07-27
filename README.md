@@ -2,7 +2,7 @@
  
 Cointopay.com crypto payment plugin for: **Blesta**
 
-**Plugin is compatible with Blesta 5.3 version**
+**Plugin is compatible with Blesta 4.3 version**
 
 ## Install
 
