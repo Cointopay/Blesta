@@ -117,8 +117,8 @@ class Cointopay extends NonmerchantGateway
         $token = md5($orderId);
 
         echo $callbackURL = Configure::get('Blesta.gw_callback_url')
-        . Configure::get('Blesta.company_id') . '/cointopay/?client_id='
-        . $this->ifSet($contact_info['client_id']) . '&token=' . $token.'&order_id='.$orderId;
+            . Configure::get('Blesta.company_id') . '/cointopay/?client_id='
+            . $this->ifSet($contact_info['client_id']) . '&token=' . $token.'&order_id='.$orderId;
         $post_params = array(
             'order_id'         => $client_id,
             'price'            => $this->ifSet($amount),
@@ -143,11 +143,11 @@ class Cointopay extends NonmerchantGateway
             print_r($order);
         }
     }
-    
+
     public function validate(array $get, array $post)
     {
         $this->log($this->ifSet($_SERVER['REQUEST_URI']), serialize($get), "output", true);
-        
+
 
         $data_parts = explode('@', $this->ifSet($get['order_id']), 2);
 
@@ -162,7 +162,7 @@ class Cointopay extends NonmerchantGateway
 
         $orderId = $get['order_id'];
 
-        $status = $this->statusChecking($get['status'],$get['notenough']);
+        $status = $this->statusChecking($get);
 
         return [
             'client_id'      => $client_id,
@@ -192,7 +192,7 @@ class Cointopay extends NonmerchantGateway
 
         $orderId = $get['order_id'];
 
-        $status = $this->statusChecking($get['status'],(integer)$get['notenough']);
+        $status = $this->statusChecking($get);
         $data = [
             'client_id'      => $client_id,
             'amount'         => $this->ifSet($invoice_detail[0]['amount']),
@@ -203,7 +203,30 @@ class Cointopay extends NonmerchantGateway
             'invoices'       => $this->unserializeInvoices($invoices),
         ];
         //var_dump($data);exit;
-		return $data;
+        return $data;
+    }
+
+    public function validateResponse($response) {
+        $validate = true;
+        $merchant_id =  $this->meta['merchant_id'];;
+        $transaction_id = $response['TransactionID'];
+        $confirm_code = $response['ConfirmCode'];
+        $url = "https://app.cointopay.com/v2REAPI?MerchantID=$merchant_id&Call=QA&APIKey=_&output=json&TransactionID=$transaction_id&ConfirmCode=$confirm_code";
+        $curl = curl_init($url);
+        curl_setopt_array($curl, array(
+            CURLOPT_RETURNTRANSFER => 1,
+            CURLOPT_SSL_VERIFYPEER => 0
+        ));
+        $result = curl_exec($curl);
+        $result = json_decode($result, true);
+        if(!$result || !is_array($result)) {
+            $validate = false;
+        }else{
+            if($response['Status'] != $result['Status']) {
+                $validate = false;
+            }
+        }
+        return $validate;
     }
 
     public function capture($reference_id, $transaction_id, $amount, array $invoice_amounts = null)
@@ -246,9 +269,19 @@ class Cointopay extends NonmerchantGateway
         return $invoices;
     }
 
-    public function statusChecking($ctp_status,$not_enough)
+    public function statusChecking($get)
     {
-        if($ctp_status== 'paid')
+        $ctp_status = $get['status'];
+        $not_enough = (integer)$get['notenough'];
+        $validate = $this->validateResponse($get);
+        if(!$validate) {
+            $lang['ClientPay.received.statement'] = "Your payment has been declined";
+            $this->Input->setErrors(['cointopay' =>[
+                "declined" => "Data do not match! Data doesn\'t match to Cointopay."
+            ]]);
+            $status = 'declined';
+        }
+        elseif($ctp_status== 'paid')
         {
             $lang['ClientPay.received.statement'] = "Your payment has been approved!";
             $status = 'approved';
