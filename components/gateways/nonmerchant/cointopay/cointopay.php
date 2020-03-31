@@ -79,6 +79,13 @@ class Cointopay extends NonmerchantGateway
                     'message' => Language::_("Cointopay.!error.security.code.valid", true),
                 ],
             ],
+			'api_key' => [
+                'valid' => [
+                    'rule'    => "isEmpty",
+                    'negate'  => true,
+                    'message' => Language::_("Cointopay.!error.api.key.valid", true),
+                ],
+            ],
         ];
 
         $this->Input->setRules($rules);
@@ -90,7 +97,7 @@ class Cointopay extends NonmerchantGateway
 
     public function encryptableFields()
     {
-        return ['merchant_id','security_code'];
+        return ['merchant_id','security_code','api_key'];
     }
 
     public function setMeta(array $meta = null)
@@ -208,7 +215,7 @@ class Cointopay extends NonmerchantGateway
 
     public function validateResponse($response) {
         $validate = true;
-        $merchant_id =  $this->meta['merchant_id'];;
+        $merchant_id =  $this->meta['merchant_id'];
         $transaction_id = $response['TransactionID'];
         $confirm_code = $response['ConfirmCode'];
         $url = "https://app.cointopay.com/v2REAPI?MerchantID=$merchant_id&Call=QA&APIKey=_&output=json&TransactionID=$transaction_id&ConfirmCode=$confirm_code";
@@ -271,8 +278,25 @@ class Cointopay extends NonmerchantGateway
 
     public function statusChecking($get)
     {
+		$api_key    =  $this->meta['api_key'];
         $ctp_status = $get['status'];
         $not_enough = (integer)$get['notenough'];
+		$validate = $this->getTransactiondetail($get);
+		if(200 !== $transactionData['status_code']){
+			$lang['ClientPay.received.statement'] = "Your payment has been declined";
+            $this->Input->setErrors(['cointopay' =>[
+                "declined" => $transactionData['message']
+            ]]);
+		}
+		$value_data = "MerchantID=" . $transactionData['data']['MerchantID'] . "&AltCoinID=" . $transactionData['data']['AltCoinID'] . "&TransactionID=" . $get['TransactionID'] . "&coinAddress=" . $transactionData['data']['coinAddress'] . "&CustomerReferenceNr=" . 
+$get['CustomerReferenceNr'] . "&SecurityCode=" . $transactionData['data']['SecurityCode'] . "&inputCurrency=" . $transactionData['data']['inputCurrency'];
+		$ConfirmCode = $this->calculateRFC2104HMAC($api_key, $value_data);
+		if($ConfirmCode !== $get['ConfirmCode']){
+			$lang['ClientPay.received.statement'] = "Your payment has been declined";
+            $this->Input->setErrors(['cointopay' =>[
+                "declined" => "Data mismatch! Data doesn\'t match with Cointopay."
+            ]]);
+		}
         $validate = $this->validateResponse($get);
         if(!$validate) {
             $lang['ClientPay.received.statement'] = "Your payment has been declined";
@@ -281,6 +305,13 @@ class Cointopay extends NonmerchantGateway
             ]]);
             $status = 'declined';
         }
+		elseif($validate->Status !== $ctp_status)
+	    {
+		   $lang['ClientPay.received.statement'] = "Your payment has been declined";
+            $this->Input->setErrors(['cointopay' =>[
+                "declined" => "We have detected different order status. Your order has been halted."
+            ]]);
+	    }
         elseif($ctp_status== 'paid')
         {
             $lang['ClientPay.received.statement'] = "Your payment has been approved!";
@@ -308,5 +339,34 @@ class Cointopay extends NonmerchantGateway
     private function flash_encode($input)
     {
         return rawurlencode(utf8_encode($input));
+    }
+	public function getTransactiondetail($data) {
+        $validate = true;
+
+        $merchant_id =  $this->meta['merchant_id'];
+        $confirm_code = $data['ConfirmCode'];
+        $url = "https://cointopay.com/v2REAPI?Call=Transactiondetail&MerchantID=".$merchant_id."&output=json&ConfirmCode=".$confirm_code."&APIKey=a";
+        $curl = curl_init($url);
+        curl_setopt_array($curl, array(
+            CURLOPT_RETURNTRANSFER => 1,
+            CURLOPT_SSL_VERIFYPEER => 0
+        ));
+        $result = curl_exec($curl);
+        $result = json_decode($result, true);
+        if(!$result || !is_array($result)) {
+            $validate = false;
+        }
+		else{
+			return $result;
+		}
+    }
+	public function calculateRFC2104HMAC ($key, $data)
+	{
+		$s = hash_hmac('sha256', $data, $key, true);
+
+		return strtoupper($this->base64url_encode($s));
+	}
+	public function base64url_encode($data) {
+    return strtoupper(rtrim(strtr(base64_encode($data), '+/', '-_'), '='));
     }
 }
