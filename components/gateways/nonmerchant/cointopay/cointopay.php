@@ -281,7 +281,7 @@ class Cointopay extends NonmerchantGateway
 		$api_key    =  $this->meta['api_key'];
         $ctp_status = $get['status'];
         $not_enough = (integer)$get['notenough'];
-		$validate = $this->getTransactiondetail($get);
+		$transactionData = $this->getTransactiondetail($get);
 		if(200 !== $transactionData['status_code']){
 			$lang['ClientPay.received.statement'] = "Your payment has been declined";
             $this->Input->setErrors(['cointopay' =>[
