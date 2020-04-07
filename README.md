@@ -8,7 +8,9 @@ Cointopay.com crypto payment plugin for: **Blesta**
 
 Please sign up for an account at <https://cointopay.com/Signup.jsp> Cointopay.com.
 
-Note down the MerchantID, SecurityCode, ApiKey and Currency, information is located in the Account section. These pieces of information are mandatory to be able to connect the payment module to your Blesta.
+Please follow the Blesta Cointopay Plugin install instructions mentioned here: <a href="https://docs.google.com/document/d/1l6ZyS5lbPcsHe5s_3oKHGW_PrkiEhvKcIXUworMxJms/edit?usp=sharing">download Blesta Cointopay Plugin documentation</a> or direct link: https://docs.google.com/document/d/1l6ZyS5lbPcsHe5s_3oKHGW_PrkiEhvKcIXUworMxJms/edit?usp=sharing
+
+Note down the MerchantID, SecurityCode and Currency, information is located in the Account section. These pieces of information are mandatory to be able to connect the payment module to your Blesta.
 
 ### Via Blesta Module Upload
 

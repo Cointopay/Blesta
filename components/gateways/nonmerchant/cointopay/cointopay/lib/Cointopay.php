@@ -107,7 +107,7 @@ class Cointopay
         {
             $response = json_decode(curl_exec($curl), TRUE);
         }
-		if (is_string($response)){
+		if (is_string($response) && $response != 'testmerchant success'){
 				\cointopay\Exception::throwException(401, array('reason' => 'BadCredentials:'.$response));
 		}
 
