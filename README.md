@@ -20,12 +20,12 @@ Installation of cointopay plugin can be done by following steps below
 2) Unzip the cointopay plugin 
 3) Redirect to admin area of your website and from left menu Click on Setting link  
 4) Find Payment Gateways in "Company Tab" and click on Payment Gateways.
-5) Now click on avialable tab and search cointopay in Non-Merchant Section
+5) Now click on available tab and search cointopay in Non-Merchant Section
 6) Find cointopay and click on install button
 7) After installation you will be redirected to cointopay settings page insert your merchant id, security code and select coin for user transactions
 8) Make sure to activate the payment method
 9) If you want to configure cointopay after installation then click on Setting >> payment methods >> cointopay.
-10) Click on cointopay from list of installed methods.
+10) Click on cointopay from the list of installed methods.
 
 
 ### Testing
