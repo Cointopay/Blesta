@@ -116,7 +116,7 @@ class Cointopay extends NonmerchantGateway
         $orderId = $client_id . '@' . (!empty($invoices) ? $invoices : time());
         $token = md5($orderId);
 
-        echo $callbackURL = Configure::get('Blesta.gw_callback_url')
+        $callbackURL = Configure::get('Blesta.gw_callback_url')
             . Configure::get('Blesta.company_id') . '/cointopay/?client_id='
             . $this->ifSet($contact_info['client_id']) . '&token=' . $token.'&order_id='.$orderId;
         $post_params = array(
@@ -161,6 +161,54 @@ class Cointopay extends NonmerchantGateway
         $invoice_detail=$this->unserializeInvoices($invoices);
 
         $orderId = $get['order_id'];
+		$transactionData = $this->getTransactiondetail($get);
+		if(200 !== $transactionData['status_code']){
+			echo $transactionData['message'];exit;
+		}
+		else{
+				if($transactionData['data']['Security'] != $get['ConfirmCode']){
+					echo "Data mismatch! ConfirmCode doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['CustomerReferenceNr'] != $get['CustomerReferenceNr']){
+					echo "Data mismatch! CustomerReferenceNr doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['TransactionID'] != $get['TransactionID']){
+					echo "Data mismatch! TransactionID doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['AltCoinID'] != $get['AltCoinID']){
+					echo "Data mismatch! AltCoinID doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['MerchantID'] != $get['MerchantID']){
+					echo "Data mismatch! MerchantID doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['coinAddress'] != $get['CoinAddressUsed']){
+					echo "Data mismatch! coinAddress doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['SecurityCode'] != $get['SecurityCode']){
+					echo "Data mismatch! SecurityCode doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['inputCurrency'] != $get['inputCurrency']){
+					echo "Data mismatch! inputCurrency doesn\'t match";
+					exit;
+				}
+				elseif($transactionData['data']['Status'] != $get['status']){
+					echo "Data mismatch! status doesn\'t match";
+					exit;
+				}
+				
+			}
+		$validate = $this->validateResponse($get);
+        if($validate->Status !== $get['status'])
+	    {
+		   echo "We have detected different order status. Your order status is ".$validate->Status;exit;
+	    }
 
         $status = $this->statusChecking($get);
 
@@ -191,6 +239,16 @@ class Cointopay extends NonmerchantGateway
         $invoice_detail=$this->unserializeInvoices($invoices);
 
         $orderId = $get['order_id'];
+		
+		$transactionData = $this->getTransactiondetail($get);
+		if(200 !== $transactionData['status_code']){
+			echo $transactionData['message'];exit;
+		}
+		$validate = $this->validateResponse($get);
+        if($validate->Status !== $get['status'])
+	    {
+		   echo "We have detected different order status. Your order status is ".$validate->Status;exit;
+	    }
 
         $status = $this->statusChecking($get);
         $data = [
@@ -265,25 +323,9 @@ class Cointopay extends NonmerchantGateway
 
     public function statusChecking($get)
     {
-		$api_key    =  $this->meta['api_key'];
         $ctp_status = $get['status'];
         $not_enough = (integer)$get['notenough'];
-		$transactionData = $this->getTransactiondetail($get);
-		if(200 !== $transactionData['status_code']){
-			$lang['ClientPay.received.statement'] = "Your payment has been declined";
-            $this->Input->setErrors(['cointopay' =>[
-                "declined" => $transactionData['message']
-            ]]);
-		}
-		$validate = $this->validateResponse($get);
-        if($validate->Status !== $ctp_status)
-	    {
-		   $lang['ClientPay.received.statement'] = "Your payment has been declined";
-            $this->Input->setErrors(['cointopay' =>[
-                "declined" => "We have detected different order status. Your order status is ".$validate->Status
-            ]]);
-	    }
-        elseif($ctp_status== 'paid')
+        if($ctp_status== 'paid')
         {
             $lang['ClientPay.received.statement'] = "Your payment has been approved!";
             $status = 'approved';
