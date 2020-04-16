@@ -178,28 +178,28 @@ class Cointopay extends NonmerchantGateway
 					echo "Data mismatch! TransactionID doesn\'t match";
 					exit;
 				}
-				elseif($transactionData['data']['AltCoinID'] != $get['AltCoinID']){
+				elseif(isset($get['AltCoinID']) && $transactionData['data']['AltCoinID'] != $get['AltCoinID']){
 					echo "Data mismatch! AltCoinID doesn\'t match";
 					exit;
 				}
-				elseif($transactionData['data']['MerchantID'] != $get['MerchantID']){
+				elseif(isset($get['MerchantID']) && $transactionData['data']['MerchantID'] != $get['MerchantID']){
 					echo "Data mismatch! MerchantID doesn\'t match";
 					exit;
 				}
-				elseif($transactionData['data']['coinAddress'] != $get['CoinAddressUsed']){
+				elseif(isset($get['CoinAddressUsed']) && $transactionData['data']['coinAddress'] != $get['CoinAddressUsed']){
 					echo "Data mismatch! coinAddress doesn\'t match";
 					exit;
 				}
-				elseif($transactionData['data']['SecurityCode'] != $get['SecurityCode']){
+				elseif(isset($get['SecurityCode']) && $transactionData['data']['SecurityCode'] != $get['SecurityCode']){
 					echo "Data mismatch! SecurityCode doesn\'t match";
 					exit;
 				}
-				elseif($transactionData['data']['inputCurrency'] != $get['inputCurrency']){
+				elseif(isset($get['inputCurrency']) && $transactionData['data']['inputCurrency'] != $get['inputCurrency']){
 					echo "Data mismatch! inputCurrency doesn\'t match";
 					exit;
 				}
 				elseif($transactionData['data']['Status'] != $get['status']){
-					echo "Data mismatch! status doesn\'t match";
+					echo "Data mismatch! status doesn\'t match. Your order status is ".$transactionData['data']['Status'];
 					exit;
 				}
 				
