@@ -13,16 +13,17 @@
  */
 class Cointopay extends NonmerchantGateway
 {
-    private static $version = "1.0.0";
+    private static $version = "1.0.1";
     private static $authors = [['name' => 'Cointopay International B.V.', 'url' => 'https://app.cointopay.com']];
     private $meta;
     public function __construct()
     {
-        Loader::loadComponents($this, array("Input"));
+        Loader::loadComponents($this, array("Input", "Session"));
 
         Loader::loadModels($this, ['Clients']);
 
         Language::loadLang("cointopay", null, dirname(__FILE__) . DS . "language" . DS);
+		
     }
 
     public function getName()
@@ -144,12 +145,37 @@ class Cointopay extends NonmerchantGateway
         }
     }
 
-    public function validate(array $get, array $post)
+	public function validate(array $get, array $post)
+	{
+		try {
+			return $this->doValidate($get, $post);
+		} catch (\Throwable $e) {
+			 $this->log('Cointopay validate: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+			echo '<div style="width:80%;display:table;margin:10% auto 0 auto;padding:6% 20px;background-color:#dadada;text-align:center;"><h3 style="text-align:center;color:red;">Cointopay error: ' . htmlspecialchars($e->getMessage()) . '</h3><a class="btn btn-default btn-block" href="'.$homepage_url.'" title="Go to home" style="
+					display: block;
+					background-color: #3F51B5;
+					padding: 10px 38px;
+					color: #fff;
+					text-transform: uppercase;
+					text-decoration: none;
+					width: 100px!important;
+					max-width: unset;
+					/* clear: both; */
+					margin: 20px auto 0;
+				line-height: 25px;">
+									Go to home
+								</a></div>';
+			exit;
+		}
+	}
+
+
+    public function doValidate(array $get, array $post)
     {
         $this->log($this->ifSet($_SERVER['REQUEST_URI']), serialize($get), "output", true);
 
 
-        $data_parts = explode('@', $this->ifSet($get['order_id']), 2);
+       $data_parts = explode('@', $this->ifSet($get['order_id']), 2);
 
         $client_id = $data_parts[0];
         $invoices = $this->ifSet($data_parts[1]);
@@ -162,57 +188,144 @@ class Cointopay extends NonmerchantGateway
 
         $orderId = $get['order_id'];
 		$transactionData = $this->getTransactiondetail($get);
+		$logged_in_client_id = $this->Session->read('blesta_client_id');
+		$homepage_url = rtrim(Configure::get('Blesta.company_url'), '/') . '/';
+		$strmsg = '<div style="width:80%;display:table;margin:10% auto 0 auto;padding:6% 20px;background-color:#dadada;text-align:center;"><h3 style="text-align:center;color:red;">';
+		$strmsgend = '</h3><a class="btn btn-default btn-block" href="'.$homepage_url.'" title="Go to home" style="
+				display: block;
+				background-color: #3F51B5;
+				padding: 10px 38px;
+				color: #fff;
+				text-transform: uppercase;
+				text-decoration: none;
+				width: 100px!important;
+				max-width: unset;
+				/* clear: both; */
+				margin: 20px auto 0;
+			line-height: 25px;">
+								Go to home
+							</a></div>';
+		
 		if(200 !== $transactionData['status_code']){
-			echo $transactionData['message'];exit;
+			if (empty($logged_in_client_id)) {
+				echo $strmsg.$transactionData['message'].$strmsgend;
+				exit;
+			}
+			$lang['ClientPay.received.statement'] = $strmsg.$transactionData['message'];
+					$this->Input->setErrors(['cointopay' =>[
+						"transmessage" => $transactionData['message']
+					]]);
 		}
 		else{
 				if($transactionData['data']['Security'] != $get['ConfirmCode']){
-					echo "Data mismatch! ConfirmCode doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! ConfirmCode doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! ConfirmCode doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"confirmcodemismatch" => "Data mismatch! ConfirmCode doesn't match"
+					]]);
 				}
 				elseif($transactionData['data']['CustomerReferenceNr'] != $get['CustomerReferenceNr']){
-					echo "Data mismatch! CustomerReferenceNr doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! CustomerReferenceNr doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! CustomerReferenceNr doesn't match!";
+					$this->Input->setErrors(['cointopay' =>[
+						"customerrefnomismatch" => "Data mismatch! CustomerReferenceNr doesn't match"
+					]]);
 				}
 				elseif($transactionData['data']['TransactionID'] != $get['TransactionID']){
-					echo "Data mismatch! TransactionID doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! TransactionID doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! TransactionID doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"TransactionIDmismatch" => "Data mismatch! TransactionID doesn't match"
+					]]);
 				}
 				elseif(isset($get['AltCoinID']) && $transactionData['data']['AltCoinID'] != $get['AltCoinID']){
-					echo "Data mismatch! AltCoinID doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! AltCoinID doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! AltCoinID doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"AltCoinIDmismatch" => "Data mismatch! AltCoinID doesn't match"
+					]]);
 				}
 				elseif(isset($get['MerchantID']) && $transactionData['data']['MerchantID'] != $get['MerchantID']){
-					echo "Data mismatch! MerchantID doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! MerchantID doesn't match".$strmsgend;;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! MerchantID doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"MerchantIDmismatch" => "Data mismatch! MerchantID doesn't match"
+					]]);
 				}
 				elseif(isset($get['CoinAddressUsed']) && $transactionData['data']['coinAddress'] != $get['CoinAddressUsed']){
-					echo "Data mismatch! coinAddress doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! coinAddress doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! coinAddress doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"coinAddressmismatch" => "Data mismatch! coinAddress doesn't match"
+					]]);
 				}
 				elseif(isset($get['SecurityCode']) && $transactionData['data']['SecurityCode'] != $get['SecurityCode']){
-					echo "Data mismatch! SecurityCode doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! SecurityCode doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! SecurityCode doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"SecurityCodemismatch" => "Data mismatch! SecurityCode doesn't match"
+					]]);
 				}
 				elseif(isset($get['inputCurrency']) && $transactionData['data']['inputCurrency'] != $get['inputCurrency']){
-					echo "Data mismatch! inputCurrency doesn\'t match";
-					exit;
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! inputCurrency doesn't match".$strmsgend;
+						exit;
+					}
+					$lang['ClientPay.received.statement'] = "Data mismatch! inputCurrency doesn't match";
+					$this->Input->setErrors(['cointopay' =>[
+						"inputcrrencymismatch" => "Data mismatch! inputCurrency doesn't match"
+					]]);
 				}
-				elseif($transactionData['data']['Status'] != $get['status']){
-					echo "Data mismatch! status doesn\'t match. Your order status is ".$transactionData['data']['Status'];
-					exit;
+				elseif (
+						 $transactionData['data']['Status'] !== $get['status']
+						&& !isset($get['cancel'])
+						&& !(
+							strtolower($get['status']) === 'paid'
+							&& isset($get['notenough'])
+							&& $get['notenough'] == 1
+						)
+						&& !(
+							strtolower( $transactionData['data']['Status']) === 'expired'
+							&& strtolower($get['status']) === 'failed'
+						)
+					) {
+					 
+					$lang['ClientPay.received.statement'] = "Data mismatch! status doesn't match. Your order status is ".$transactionData['data']['Status'];
+					$this->Input->setErrors(['cointopay' =>[
+						"statusmismatch" => "Data mismatch! status doesn't match. Your order status is ".$transactionData['data']['Status']
+					]]);
+					if (empty($logged_in_client_id)) {
+						echo $strmsg."Data mismatch! status doesn't match. Your order status is ".$transactionData['data']['Status'].$strmsgend;
+						exit;
+					}
 				}
 				
 			}
-		$validate = $this->validateResponse($get);
-        if($validate->Status !== $get['status'])
-	    {
-		   echo "We have detected different order status. Your order status is ".$validate->Status;exit;
-	    }
 
         $status = $this->statusChecking($get);
 
-        return [
+        $data =  [
             'client_id'      => $client_id,
             'amount'         => $this->ifSet($invoice_detail[0]['amount']),
             'currency'       => $this->ifSet($post['currency']) ?? 'USD',
@@ -221,6 +334,9 @@ class Cointopay extends NonmerchantGateway
             'transaction_id' => $this->ifSet($get['TransactionID']),
             'invoices'       => $this->unserializeInvoices($invoices),
         ];
+		//var_dump($data);exit;
+        return $data;
+
     }
 
     public function success(array $get, array $post)
@@ -239,15 +355,55 @@ class Cointopay extends NonmerchantGateway
         $invoice_detail=$this->unserializeInvoices($invoices);
 
         $orderId = $get['order_id'];
+		$homepage_url = rtrim(Configure::get('Blesta.company_url'), '/') . '/';
+		$strmsg = '<div style="width:80%;display:table;margin:10% auto 0 auto;padding:6% 20px;background-color:#dadada;text-align:center;"><h3 style="text-align:center;color:red;">';
+		$strmsgend = '</h3><a class="btn btn-default btn-block" href="'.$homepage_url.'" title="Go to home" style="
+				display: block;
+				background-color: #3F51B5;
+				padding: 10px 38px;
+				color: #fff;
+				text-transform: uppercase;
+				text-decoration: none;
+				width: 100px!important;
+				max-width: unset;
+				/* clear: both; */
+				margin: 20px auto 0;
+			line-height: 25px;">
+								Go to home
+							</a></div>';
+		$logged_in_client_id = $this->Session->read('blesta_client_id');
 		
 		$transactionData = $this->getTransactiondetail($get);
 		if(200 !== $transactionData['status_code']){
-			echo $transactionData['message'];exit;
+			$lang['ClientPay.received.statement'] = $strmsg.$transactionData['message'];
+			$this->Input->setErrors(['cointopay' =>[
+				"transmessage" => $transactionData['message']
+			]]);
+			if (empty($logged_in_client_id)) {
+				echo $strmsg.$transactionData['message'].$strmsgend;
+			}
 		}
 		$validate = $this->validateResponse($get);
-        if($validate->Status !== $get['status'])
-	    {
-		   echo "We have detected different order status. Your order status is ".$validate->Status;exit;
+        if( $validate->Status !== $get['status']
+						&& !isset($get['cancel'])
+						&& !(
+							strtolower($get['status']) === 'paid'
+							&& isset($get['notenough'])
+							&& $get['notenough'] == 1
+						)
+						&& !(
+							strtolower( $validate->Status ) === 'expired'
+							&& strtolower($get['status']) === 'failed'
+						)
+					) {
+						 $lang['ClientPay.received.statement'] = "Data mismatch! status doesn't match. Your order status is ".$validate->Status;
+						$this->Input->setErrors(['cointopay' =>[
+							"statuctpsmismatch" => "We have detected different order status. Your order status is ".$validate->Status
+						]]);
+						if (empty($logged_in_client_id)) {
+							echo $strmsg."Data mismatch! status doesn't match. Your order status is ".$validate->Status.$strmsgend;
+						}
+		
 	    }
 
         $status = $this->statusChecking($get);
@@ -256,8 +412,7 @@ class Cointopay extends NonmerchantGateway
             'amount'         => $this->ifSet($invoice_detail[0]['amount']),
             'currency'       => $this->ifSet($post['currency']) ?? 'USD',
             'status'         => $status,
-            'reference_id'   => $orderId,
-            'transaction_id' => $this->ifSet($get['TransactionID']),
+            'transaction_id' => null,
             'invoices'       => $this->unserializeInvoices($invoices),
         ];
         //var_dump($data);exit;
@@ -324,12 +479,37 @@ class Cointopay extends NonmerchantGateway
     public function statusChecking($get)
     {
         $ctp_status = $get['status'];
-        $not_enough = (integer)$get['notenough'];
-        if($ctp_status== 'paid')
+        $not_enough = (int)$get['notenough'];
+		$homepage_url = rtrim(Configure::get('Blesta.company_url'), '/') . '/';
+		$strmsg = '<div style="width:80%;display:table;margin:10% auto 0 auto;padding:6% 20px;background-color:#dadada;text-align:center;"><h3 style="text-align:center;color:red;">';
+		$strmsgsuccess = '<div style="width:80%;display:table;margin:10% auto 0 auto;padding:6% 20px;background-color:#dadada;text-align:center;"><h3 style="text-align:center;color:green;">';
+		$strmsgend = '</h3><a class="btn btn-default btn-block" href="'.$homepage_url.'" title="Go to home" style="
+				display: block;
+				background-color: #3F51B5;
+				padding: 10px 38px;
+				color: #fff;
+				text-transform: uppercase;
+				text-decoration: none;
+				width: 100px!important;
+				max-width: unset;
+				/* clear: both; */
+				margin: 20px auto 0;
+			line-height: 25px;">
+								Go to home
+							</a></div>';
+		$logged_in_client_id = $this->Session->read('blesta_client_id');
+		
+		if($ctp_status== 'paid')
         {
-            $lang['ClientPay.received.statement'] = "Your payment has been approved!";
+			if (empty($logged_in_client_id)) {
+			echo $strmsgsuccess . "Your payment has been confirmed!" . $strmsgend;
+			}
+            $lang['ClientPay.received.statement'] = "Your payment has been confirmed!";
             $status = 'approved';
             if($not_enough == 1) {
+				if (empty($logged_in_client_id)) {
+				echo $strmsg . "Your payment is in pending!" . $strmsgend;
+				}
                 $lang['ClientPay.received.statement'] = "Your payment is in pending!";
                 $this->Input->setErrors(['cointopay' =>[
                     "pending" => "Your payment has not been Paid in full"
@@ -339,6 +519,9 @@ class Cointopay extends NonmerchantGateway
         }
         else
         {
+            if (empty($logged_in_client_id)) {
+				echo $strmsg . "Your payment has been declined!" . $strmsgend;
+			}
             $lang['ClientPay.received.statement'] = "Your payment has been declined!";
             $this->Input->setErrors(['cointopay' =>[
                 "declined" => "Your payment has been declined!"
